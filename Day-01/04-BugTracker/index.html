@@ -34,15 +34,47 @@
 			font-style: italic;
 		}
 	</style>
+	<script src="angular.js"></script>
+	<script>
+		var bugTrackerApp = angular.module("bugTrackerApp", []);
+		bugTrackerApp.controller("bugsController", function($scope){
+			
+			$scope.bugs = [];
+			
+			$scope.addNew = function(newBugName){
+				var newBug = {
+					name : newBugName,
+					isClosed : false
+				};
+				$scope.bugs.push(newBug);
+			};
+
+			$scope.toggleBug = function(bug){
+				bug.isClosed = !bug.isClosed;
+			}
+
+			$scope.getClosedCount = function(){
+				return $scope.bugs.filter(function(bug){
+					return bug.isClosed
+				}).length;
+			};
+
+			$scope.removeClosed = function(){
+				for(var i=$scope.bugs.length-1; i >=0; i--)
+					if ($scope.bugs[i].isClosed)
+						$scope.bugs.splice(i,1);
+			}
+		});
+	</script>
 </head>
-<body>
+<body ng-app="bugTrackerApp">
 	<h1>Bug Tracker</h1>
 	<hr>
-	<section class="content">
+	<section class="content" ng-controller="bugsController">
 		<section class="stats">
-			<span class="closed">2</span>
+			<span class="closed">{{getClosedCount()}}</span>
 			<span> / </span>
-			<span>5</span>
+			<span>{{bugs.length}}</span>
 		</section>
 		<section class="search">
 			<label for="">Search : </label>
@@ -58,19 +90,21 @@
 		</section>
 		<section class="edit">
 			<label for="">Bug Name : </label>
-			<input type="text" name="" id="">
-			<input type="button" value="Add New">
+			<input type="text" ng-model="newBug">
+			<input type="button" value="Add New" ng-click="addNew(newBug)">
 			<ol>
-				<li>
-					<span class="bugname closed">This is bug - 1</span>
-					<div class="datetime">[CreatedAt]</div>
-				</li>
-				<li>
-					<span class="bugname">This is bug - 2</span>
+				<li ng-repeat="bug in bugs track by $index">
+					<span 
+						class="bugname" 
+						ng-click="toggleBug(bug)" 
+						ng-class="{closed : bug.isClosed}"
+					>
+						{{bug.name}}
+					</span>
 					<div class="datetime">[CreatedAt]</div>
 				</li>
 			</ol>
-			<input type="button" value="Remove Closed">
+			<input type="button" value="Remove Closed" ng-click="removeClosed()">
 		</section>
 	</section>
 </body>
