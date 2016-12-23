@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Bug Tracker</title>
+	<base href="/"/>
+	<style>
+		section{
+			margin-bottom: 10px;
+		}
+		.bugname, .stats{
+			font-size: 20pt;
+		}
+		.closed{
+			color : red;
+			text-decoration: line-through;
+			font-style: italic;
+			font-weight: bold;
+		}
+		ol{
+			width: 500px;
+			list-style: none;
+		}
+		li{
+			margin-bottom: 10px;
+			border : 1px solid gray;
+			background: #e7e7e7;
+			padding : 5px;
+			border-radius: 5px;
+		}
+		.bugname{
+			cursor: pointer;
+		}
+		.datetime{
+			font-style: italic;
+		}
+	</style>
+	<script src="angular.js"></script>
+	<script src="angular-route.js"></script>
+	<script src="moment.js"></script>
+	<script src="utils.js"></script>
+	<script>
+		
+		// $routeProvider, $routeParams, ng-view
+
+
+		var bugTrackerApp = angular.module("bugTrackerApp", ["utils", "ngRoute"]);
+
+		bugTrackerApp.config(function($routeProvider, $locationProvider){
+			$routeProvider
+				.when('/bugs', {
+					//template : '<h3>All the bugs will be listed here</h3>'
+					templateUrl : 'bugs-list.template.html'
+				})
+				.when('/new', {
+					//template : '<h3>A new bug will be added here</h3>'
+					templateUrl : 'bugs-new.template.html',
+					controller : 'newBugController'
+				})
+				.when('/bugs/:id', {
+					//template : '<h3>Details about one bug will be displayed here</h3>'
+					templateUrl : 'bug-details.template.html',
+					controller : 'bugDetailsController'
+				})
+				.otherwise({
+					redirectTo : '/bugs'
+				});
+				$locationProvider.html5Mode(true);
+		})
+		
+		bugTrackerApp.value("bugDefaults", {
+			name : '[Default Bug]',
+			trimLength : 30
+		});
+		
+		bugTrackerApp.factory('bugOperations', function(bugDefaults){
+			return {
+				createNew : function(id, bugName){
+					return {
+						id : id,
+						name : bugName || bugDefaults.name,
+						isClosed : false,
+						createdAt : new Date()
+					}
+				},
+				toggle : function(bug){
+					bug.isClosed = !bug.isClosed;
+				}
+			}
+		});
+
+
+		bugTrackerApp.filter("closedCount", function($filter){
+			var builtInFilterFilter = $filter('filter');
+			return function(bugs){
+				return builtInFilterFilter(bugs, {isClosed : true}).length;
+			}
+		});
+
+		
+		bugTrackerApp.service("bugStorage", function(bugOperations){
+			var storage = window.localStorage;
+			var currentBugId = 0;
+
+			this.getAll = function getAll(){
+				var result = [];
+				for(var i=0;i < storage.length; i++){
+					var bug = angular.fromJson(storage.getItem(storage.key(i)));
+					currentBugId = currentBugId > bug.id ? currentBugId : bug.id;
+					result.push(bug);
+				}
+				return result;
+			}
+			this.addNew = function addNew(bugName){
+				var newBug = bugOperations.createNew(++currentBugId, bugName);
+				save(newBug);
+				return newBug;
+			}
+			function save(bug){
+				storage.setItem(bug.id, angular.toJson(bug));
+			}
+			this.remove = function remove(bug){
+				storage.removeItem(bug.id);
+			}
+			this.toggle  = function toggle(bug){
+				bugOperations.toggle(bug);
+				save(bug);
+			}
+			this.getById = function(id){
+				return angular.fromJson(storage.getItem(id));
+			};
+			
+		})
+		bugTrackerApp.controller("bugsController", function($scope, bugStorage){
+			
+			$scope.bugs = bugStorage.getAll();
+			
+			$scope.addNew = function(newBugName){
+				var newBug = bugStorage.addNew(newBugName);
+				$scope.bugs.push(newBug);
+			};
+
+			$scope.toggleBug = function(bug){
+				bugStorage.toggle(bug);
+			}
+
+			
+			$scope.removeClosed = function(){
+				for(var i=$scope.bugs.length-1; i >=0; i--)
+					if ($scope.bugs[i].isClosed){
+						bugStorage.remove($scope.bugs[i]);
+						$scope.bugs.splice(i,1);
+					}
+			}
+		});
+		bugTrackerApp.controller("newBugController", function($scope, bugStorage, $location){
+			$scope.addNew = function(newBugName){
+				var newBug = bugStorage.addNew(newBugName);
+				$location.path('/bugs');	
+			};
+
+			
+		});
+		bugTrackerApp.controller("bugDetailsController", function($scope, bugStorage, $routeParams){
+			var id = $routeParams.id
+			$scope.bug = bugStorage.getById(id);
+		})
+	</script>
+</head>
+<body ng-app="bugTrackerApp">
+	<h1>Bug Tracker</h1>
+	<hr>
+	<ng-view></ng-view>
+</body>
+</html>

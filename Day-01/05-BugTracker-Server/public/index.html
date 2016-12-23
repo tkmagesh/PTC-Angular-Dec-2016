@@ -43,7 +43,13 @@
 
 		var bugTrackerApp = angular.module("bugTrackerApp", ["utils"]);
 
-		
+		bugTrackerApp.run(function($rootScope){
+			$rootScope.setSelectedBug = function(bug){
+				$rootScope.selectedBug = bug;
+			};
+			$rootScope.selectedBug = '[Default selected bug]';
+		});
+
 		bugTrackerApp.value("bugDefaults", {
 			name : '[Default Bug]',
 			trimLength : 30
@@ -185,6 +191,10 @@
 			
 			$scope.removeClosed = function(){
 				bugsCollection.removeClosed();
+			};
+
+			$scope.selectBug = function(bug){
+				$scope.setSelectedBug(bug);
 			}
 		});
 
@@ -192,11 +202,19 @@
 			$scope.addNew = function(bugName){
 				bugsCollection.addNew(bugName);
 			}
-		})
+		});
+
+		bugTrackerApp.controller("bugDetailsController", function($scope){
+
+		});
 	</script>
 </head>
 <body ng-app="bugTrackerApp">
 	<h1>Bug Tracker</h1>
+	<hr>
+	<section class="details" ng-controller="bugDetailsController">
+		<h3>{{selectedBug}}</h3>
+	</section>
 	<hr>
 	<section class="content" ng-controller="bugsController">
 		<section class="stats">
@@ -233,6 +251,7 @@
 						{{bug.name | trimText:20}}
 					</span>
 					<div class="datetime">{{bug.createdAt | elapsed}}</div>
+					<input type="button" value="Select" ng-click="selectBug(bug)">
 				</li>
 			</ol>
 			<input type="button" value="Remove Closed" ng-click="removeClosed()">
