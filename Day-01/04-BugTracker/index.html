@@ -35,6 +35,7 @@
 		}
 	</style>
 	<script src="angular.js"></script>
+	<script src="moment.js"></script>
 	<script>
 		var bugTrackerApp = angular.module("bugTrackerApp", []);
 
@@ -45,11 +46,10 @@
 		});
 		
 		bugTrackerApp.factory('bugOperations', function(bugDefaults){
-			var currentBugId = 0;
 			return {
-				createNew : function(bugName){
+				createNew : function(id, bugName){
 					return {
-						id : ++currentBugId,
+						id : id,
 						name : bugName || bugDefaults.name,
 						isClosed : false,
 						createdAt : new Date()
@@ -68,6 +68,12 @@
 			};
 		});
 
+		bugTrackerApp.filter('elapsed', function(){
+			return function(data){
+				return moment(data).fromNow();
+			};
+		});
+
 		/*bugTrackerApp.filter("closedCount", function(){
 			return function(bugs){
 				return bugs.filter(function(bug){
@@ -83,24 +89,93 @@
 			}
 		});
 
-		bugTrackerApp.controller("bugsController", function($scope, bugOperations){
+		/*
+		bugTrackerApp.factory("bugStorage", function(bugOperations){
+			var storage = window.localStorage;
+			var currentBugId = 0;
+
+			function getAll(){
+				var result = [];
+				for(var i=0;i < storage.length; i++){
+					var bug = angular.fromJson(storage.getItem(storage.key(i)));
+					currentBugId = currentBugId > bug.id ? currentBugId : bug.id;
+					result.push(bug);
+				}
+				return result;
+			}
+			function addNew(bugName){
+				var newBug = bugOperations.createNew(++currentBugId, bugName);
+				save(newBug);
+				return newBug;
+			}
+			function save(bug){
+				storage.setItem(bug.id, angular.toJson(bug));
+			}
+			function remove(bug){
+				storage.removeItem(bug.id);
+			}
+			function toggle(bug){
+				bugOperations.toggle(bug);
+				save(bug);
+			}
+			return {
+				getAll : getAll,
+				addNew : addNew,
+				remove : remove,
+				toggle : toggle
+			}
+		})
+		*/
+		bugTrackerApp.service("bugStorage", function(bugOperations){
+			var storage = window.localStorage;
+			var currentBugId = 0;
+
+			this.getAll = function getAll(){
+				var result = [];
+				for(var i=0;i < storage.length; i++){
+					var bug = angular.fromJson(storage.getItem(storage.key(i)));
+					currentBugId = currentBugId > bug.id ? currentBugId : bug.id;
+					result.push(bug);
+				}
+				return result;
+			}
+			this.addNew = function addNew(bugName){
+				var newBug = bugOperations.createNew(++currentBugId, bugName);
+				save(newBug);
+				return newBug;
+			}
+			function save(bug){
+				storage.setItem(bug.id, angular.toJson(bug));
+			}
+			this.remove = function remove(bug){
+				storage.removeItem(bug.id);
+			}
+			this.toggle  = function toggle(bug){
+				bugOperations.toggle(bug);
+				save(bug);
+			}
 			
-			$scope.bugs = [];
+		})
+		bugTrackerApp.controller("bugsController", function($scope, bugStorage){
+			
+			$scope.bugs = bugStorage.getAll();
 			
 			$scope.addNew = function(newBugName){
-				var newBug = bugOperations.createNew(newBugName);
+				var newBug = bugStorage.addNew(newBugName);
 				$scope.bugs.push(newBug);
 			};
 
 			$scope.toggleBug = function(bug){
-				bugOperations.toggle(bug);
+				bugStorage.toggle(bug);
 			}
 
 			
 			$scope.removeClosed = function(){
 				for(var i=$scope.bugs.length-1; i >=0; i--)
-					if ($scope.bugs[i].isClosed)
+					if ($scope.bugs[i].isClosed){
+						bugStorage.remove($scope.bugs[i]);
 						$scope.bugs.splice(i,1);
+					}
 			}
 		});
 	</script>
@@ -145,7 +220,7 @@
 					>
 						{{bug.name | trimText:20}}
 					</span>
-					<div class="datetime">[CreatedAt]</div>
+					<div class="datetime">{{bug.createdAt | elapsed}}</div>
 				</li>
 			</ol>
 			<input type="button" value="Remove Closed" ng-click="removeClosed()">
