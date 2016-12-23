@@ -67,58 +67,14 @@
 
 		
 
-		/*bugTrackerApp.filter("closedCount", function(){
-			return function(bugs){
-				return bugs.filter(function(bug){
-					return bug.isClosed
-				}).length;
-			}
-		})*/
-
 		bugTrackerApp.filter("closedCount", function($filter){
 			var builtInFilterFilter = $filter('filter');
-			return function(bugs){
+			return function(bugs=[]){
 				return builtInFilterFilter(bugs, {isClosed : true}).length;
 			}
 		});
 
-		/*
-		bugTrackerApp.factory("bugStorage", function(bugOperations){
-			var storage = window.localStorage;
-			var currentBugId = 0;
-
-			function getAll(){
-				var result = [];
-				for(var i=0;i < storage.length; i++){
-					var bug = angular.fromJson(storage.getItem(storage.key(i)));
-					currentBugId = currentBugId > bug.id ? currentBugId : bug.id;
-					result.push(bug);
-				}
-				return result;
-			}
-			function addNew(bugName){
-				var newBug = bugOperations.createNew(++currentBugId, bugName);
-				save(newBug);
-				return newBug;
-			}
-			function save(bug){
-				storage.setItem(bug.id, angular.toJson(bug));
-			}
-			function remove(bug){
-				storage.removeItem(bug.id);
-			}
-			function toggle(bug){
-				bugOperations.toggle(bug);
-				save(bug);
-			}
-			return {
-				getAll : getAll,
-				addNew : addNew,
-				remove : remove,
-				toggle : toggle
-			}
-		})
-		*/
+	
 		bugTrackerApp.service("bugStorage", function(bugOperations){
 			var storage = window.localStorage;
 			var currentBugId = 0;
@@ -148,29 +104,95 @@
 				save(bug);
 			}
 			
-		})
-		bugTrackerApp.controller("bugsController", function($scope, bugStorage){
+		});
+
+		bugTrackerApp.service("bugsCollection", function(bugService){
 			
-			$scope.bugs = bugStorage.getAll();
+
+			bugService
+				.getAll()
+				.then(data => {
+					this.list = data;
+				});
+
+			this.addNew = function(newBugName){
+				bugService
+					.addNew(newBugName)
+					.then(newBug => this.list.push(newBug));
+			};
+
+			this.toggleBug = function(bug){
+				bugService.toggle(bug);
+			}
+
+			
+			this.removeClosed = function(){
+				for(var i=this.list.length-1; i >=0; i--)
+					if (this.list[i].isClosed){
+						bugService.remove(this.list[i]);
+						this.list.splice(i,1);
+					}
+			}
+
+		})
+		bugTrackerApp.factory("bugService", function($http, bugOperations){
+			function getAll(){
+				return $http
+					.get('http://localhost:3000/bugs')
+					.then(response => response.data)
+			}
+			function addNew(bugName){
+				var newBugData = bugOperations.createNew(0, bugName);
+				return $http
+					.post('/bugs', newBugData)
+					.then(response => response.data);
+			}
+			function toggle(bug){
+				bugOperations.toggle(bug);
+				
+				return $http
+					.put('/bugs/' + bug.id, bug)
+					.then(response => response.data);
+			}
+			function remove(bug){
+				return $http
+					.delete('/bugs/' + bug.id)
+					.then(response => response.data);	
+			}
+			return {
+				getAll : getAll,
+				addNew : addNew,
+				toggle : toggle,
+				remove : remove
+			}
+		});
+
+		bugTrackerApp.controller("bugsController", function($scope, bugsCollection){
+			
+			$scope.bugs = bugsCollection;
+
+			
 			
 			$scope.addNew = function(newBugName){
-				var newBug = bugStorage.addNew(newBugName);
-				$scope.bugs.push(newBug);
+				bugsCollection
+					.addNew(newBugName)
 			};
 
 			$scope.toggleBug = function(bug){
-				bugStorage.toggle(bug);
+				bugsCollection.toggle(bug);
 			}
 
 			
 			$scope.removeClosed = function(){
-				for(var i=$scope.bugs.length-1; i >=0; i--)
-					if ($scope.bugs[i].isClosed){
-						bugStorage.remove($scope.bugs[i]);
-						$scope.bugs.splice(i,1);
-					}
+				bugsCollection.removeClosed();
 			}
 		});
+
+		bugTrackerApp.controller("bugEditController", function($scope, bugsCollection){
+			$scope.addNew = function(bugName){
+				bugsCollection.addNew(bugName);
+			}
+		})
 	</script>
 </head>
 <body ng-app="bugTrackerApp">
@@ -178,11 +200,11 @@
 	<hr>
 	<section class="content" ng-controller="bugsController">
 		<section class="stats">
-			<span class="closed">{{ bugs | closedCount }}</span>
-			<!-- <span class="closed">{{ (bugs | filter:{isClosed : true}).length }}</span> -->
+			<span class="closed">{{ bugs.list | closedCount }}</span>
+			<!-- <span class="closed">{{ (bugs.list | filter:{isClosed : true}).length }}</span> -->
 
 			<span> / </span>
-			<span>{{bugs.length}}</span>
+			<span>{{bugs.list.length}}</span>
 		</section>
 		<section class="search">
 			<label for="">Search : </label>
@@ -200,12 +222,9 @@
 			<label for="">Descending ? :</label>
 			<input type="checkbox" ng-model="sortBugOrder">
 		</section>
-		<section class="edit">
-			<label for="">Bug Name : </label>
-			<input type="text" ng-model="newBug">
-			<input type="button" value="Add New" ng-click="addNew(newBug)">
+		<section>
 			<ol>
-				<li ng-repeat="bug in ( bugs | filter:searchBug | orderBy:sortBugBy:sortBugOrder ) ">
+				<li ng-repeat="bug in ( bugs.list | filter:searchBug | orderBy:sortBugBy:sortBugOrder ) ">
 					<span 
 						class="bugname" 
 						ng-click="toggleBug(bug)" 
@@ -218,6 +237,11 @@
 			</ol>
 			<input type="button" value="Remove Closed" ng-click="removeClosed()">
 		</section>
+	</section>
+	<section class="edit" ng-controller="bugEditController">
+		<label for="">Bug Name : </label>
+		<input type="text" ng-model="newBug">
+		<input type="button" value="Add New" ng-click="addNew(newBug)">
 	</section>
 </body>
 </html>
