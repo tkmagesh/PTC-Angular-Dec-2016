@@ -1,0 +1,11 @@
+<div>
+	<span 
+		class="bugname" 
+		ng-click="toggleBug(data)" 
+		ng-class="{closed : data.isClosed}"
+	>
+		{{data.name | trimText:20}}
+	</span>
+	<div class="datetime">{{data.createdAt | elapsed}}</div>
+	<input type="button" value="Details" ng-click="selectItem(data)">
+</div>

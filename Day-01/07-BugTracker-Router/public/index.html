@@ -35,6 +35,7 @@
 			font-style: italic;
 		}
 	</style>
+	<script src="jquery-3.1.1.js"></script>
 	<script src="angular.js"></script>
 	<script src="angular-route.js"></script>
 	<script src="moment.js"></script>
@@ -151,6 +152,10 @@
 						bugStorage.remove($scope.bugs[i]);
 						$scope.bugs.splice(i,1);
 					}
+			};
+
+			$scope.onBugSelect = function(bug){
+				console.log('directive has informed that the user want to select a bug', bug);
 			}
 		});
 		bugTrackerApp.controller("newBugController", function($scope, bugStorage, $location){
@@ -164,12 +169,36 @@
 		bugTrackerApp.controller("bugDetailsController", function($scope, bugStorage, $routeParams){
 			var id = $routeParams.id
 			$scope.bug = bugStorage.getById(id);
+		});
+
+		bugTrackerApp.directive("bugItem", function(){
+			
+			return {
+				restrict : 'E',
+				scope : {
+					data : '=',
+					onSelect : '&'
+				},
+				controller : function($scope){
+					$scope.selectItem = function(data){
+						$scope.onSelect(data);
+					}
+				},
+				templateUrl : 'bug-item.template.html',
+				link : function($scope, $element, $attrs){
+					console.dir($element);
+					$element.click(function(){
+						console.log('I have been clicked');
+					});
+				}
+			}
 		})
 	</script>
 </head>
 <body ng-app="bugTrackerApp">
 	<h1>Bug Tracker</h1>
 	<hr>
+	<bug></bug>
 	<ng-view></ng-view>
 </body>
 </html>
